@@ -17,7 +17,8 @@ OFRAK supports using the Ghidra backend in two ways: natively on your host machi
     1. Run `python -m ofrak_ghidra.config dump > ofrak_ghidra.yml` to create the default YAML file
     1. Modify `ofrak_ghidra.yml` according to your local Ghidra environment. This provides OFRAK Ghidra with the paths to your Ghidra install directory and Ghidra log file as well as your Ghidra Server address and credentials.
     1. Run `python -m ofrak_ghidra.config import ofrak_ghidra.yml` so that OFRAK Ghidra can connect to the Ghidra server
-    1. Run `sudo python -m ofrak_ghidra.server start`
+    1. Run the server (see [Start/Stop](#startstop-the-ghidra-server) below). For local use,
+       prefer the no-root console mode: `python -m ofrak_ghidra.server console`.
 
 === "Docker"
 
@@ -45,11 +46,25 @@ OFRAK supports using the Ghidra backend in two ways: natively on your host machi
 
 ## Start/Stop the Ghidra Server
 
-The Ghidra server must be running before OFRAK can use Ghidra analysis.
+The Ghidra server must be running before OFRAK can use Ghidra analysis. There are two ways to run it:
 
-To start the Ghidra server, users should run `python -m ofrak_ghidra.server start`.
+- **Foreground, no root (recommended for local/dev use):**
+  ```
+  python -m ofrak_ghidra.server console
+  ```
+  This uses Ghidra's own console mode, which a normal user is allowed to run. First-run
+  repository setup is done automatically (it only writes to the user-owned Ghidra
+  repositories directory). Press `Ctrl-C` to stop.
 
-To stop it, run `python -m ofrak_ghidra.server stop`.
+- **As a background system service:**
+  ```
+  sudo python -m ofrak_ghidra.server start     # installs + starts a systemd service
+  sudo python -m ofrak_ghidra.server stop      # stops it
+  ```
+  This path registers Ghidra Server as a systemd service via `svrInstall`, which is why it
+  requires root. Use it when you want the server to persist as a managed service.
+
+OFRAK connects to the server identically either way.
 
 ## Usage
 To use Ghidra, you need to discover the component at setup-time with:

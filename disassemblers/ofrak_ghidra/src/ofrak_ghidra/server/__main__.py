@@ -6,6 +6,7 @@ import sys
 
 from ofrak_ghidra.constants import (
     GHIDRA_START_SERVER_SCRIPT,
+    GHIDRA_CONSOLE_SERVER_SCRIPT,
     GHIDRA_PATH,
     CORE_OFRAK_GHIDRA_SCRIPTS,
     GHIDRA_USER,
@@ -35,6 +36,27 @@ def _run_ghidra_server(*args):
         raise NotImplementedError(f"Native OFRAK Ghidra server not supported for {sys.platform}!")
 
 
+def _run_ghidra_server_console(*args):
+    if sys.platform == "linux" or sys.platform == "darwin":
+        os.chmod(
+            GHIDRA_CONSOLE_SERVER_SCRIPT,
+            os.stat(GHIDRA_CONSOLE_SERVER_SCRIPT).st_mode | stat.S_IEXEC,
+        )
+        subprocess.call(
+            [
+                GHIDRA_CONSOLE_SERVER_SCRIPT,
+                GHIDRA_PATH,
+                CORE_OFRAK_GHIDRA_SCRIPTS,
+                GHIDRA_USER,
+                GHIDRA_PASS,
+                GHIDRA_REPOSITORY_HOST,
+                str(GHIDRA_REPOSITORY_PORT),
+            ]
+        )
+    else:
+        raise NotImplementedError(f"Native OFRAK Ghidra server not supported for {sys.platform}!")
+
+
 def _stop_ghidra_server(*args):
     if sys.platform == "linux" or sys.platform == "darwin":
         subprocess.call([os.path.join(GHIDRA_PATH, "server", "ghidraSvr"), "stop"])
@@ -45,8 +67,16 @@ def _stop_ghidra_server(*args):
 parser = argparse.ArgumentParser(description="Manage OFRAK Ghidra server")
 command_parser = parser.add_subparsers()
 
-start_parser = command_parser.add_parser("start", description="Start the OFRAK Ghidra server")
+start_parser = command_parser.add_parser(
+    "start",
+    description="Start the OFRAK Ghidra server as a background system service (requires root)",
+)
 start_parser.set_defaults(func=_run_ghidra_server)
+console_parser = command_parser.add_parser(
+    "console",
+    description="Run the OFRAK Ghidra server in the foreground (console mode), without root",
+)
+console_parser.set_defaults(func=_run_ghidra_server_console)
 stop_parser = command_parser.add_parser("stop", description="Stop the OFRAK Ghidra server")
 stop_parser.set_defaults(func=_stop_ghidra_server)
 
