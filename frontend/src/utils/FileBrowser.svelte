@@ -37,7 +37,8 @@
   import Button from "./Button.svelte";
   export let files,
     input,
-    multiple = false;
+    multiple = false,
+    selectedName = "";
   let dragging = false;
 </script>
 
@@ -66,10 +67,12 @@
       {/if}
       <span>
         <Button on:click="{() => input.click()}">Browse...</Button>
-        {#if files}
+        {#if files && Array.from(files).length > 0}
           {Array.from(files)
             .map((f) => f?.name)
             .join(", ")}
+        {:else if selectedName}
+          {selectedName}
         {:else}
           No file selected.
         {/if}
