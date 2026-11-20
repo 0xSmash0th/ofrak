@@ -69,9 +69,7 @@
       text: "Delete Script",
       iconUrl: "/icons/trash.svg",
       shortcut: "D",
-      onclick: () => {
-        deleteScript;
-      },
+      onclick: deleteScript,
     },
   ];
 </script>
