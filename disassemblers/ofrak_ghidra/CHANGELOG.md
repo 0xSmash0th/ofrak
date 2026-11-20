@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Added
 - Add OFRAK requirements, requirement to test mapping, test specifications ([#656](https://github.com/redballoonsecurity/ofrak/pull/656))
 - Add a `console` subcommand to `ofrak_ghidra.server` to run the Ghidra server in the foreground with no root required (`python -m ofrak_ghidra.server console`). ([#XXX](https://github.com/redballoonsecurity/ofrak/pull/XXX))
+- Add `console-stop` and `console-status` subcommands to `ofrak_ghidra.server` to stop / report the current user's no-root `console` server without sudo (locating it by uid-scoped `pgrep`, excluding the `analyzeHeadless` analysis JVMs that share the classpath). ([#XXX](https://github.com/redballoonsecurity/ofrak/pull/XXX))
 
 ### Changed
 - Minor update to OFRAK Community License, add OFRAK Pro License ([#478](https://github.com/redballoonsecurity/ofrak/pull/478))
