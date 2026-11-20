@@ -267,19 +267,26 @@ class ComponentMissingDependencyError(RuntimeError):
         component: ComponentInterface,
         dependency: ComponentExternalTool,
     ):
-        if dependency.apt_package:
-            apt_install_str = f"\n\tapt installation: apt install {dependency.apt_package}"
-        else:
-            apt_install_str = ""
-        if dependency.brew_package:
-            brew_install_str = f"\n\tbrew installation: brew install {dependency.brew_package}"
-        else:
-            brew_install_str = ""
+        # Render a hint for each package manager the dependency declares. Table-driven so every
+        # declared field is shown (a per-manager `if` block previously left `choco_package` with no
+        # hint at all) and adding a manager is a one-line data change.
+        install_hints = ""
+        for label, command, package in (
+            ("apt", "apt install", dependency.apt_package),
+            ("brew", "brew install", dependency.brew_package),
+            ("choco", "choco install", dependency.choco_package),
+            (
+                "pip (into OFRAK's Python environment; restart OFRAK afterward)",
+                "pip install",
+                dependency.pip_package,
+            ),
+        ):
+            if package:
+                install_hints += f"\n\t{label} installation: {command} {package}"
 
         super().__init__(
             f"Missing {dependency.tool} tool needed for {type(component).__name__}!"
-            f"{apt_install_str}"
-            f"{brew_install_str}"
+            f"{install_hints}"
             f"\n\tSee {dependency.tool_homepage} for more info and installation help."
             f"\n\tAlternatively, OFRAK can ignore this component (and any others with missing "
             f"dependencies) so that they will never be run: OFRAK(..., exclude_components_missing_dependencies=True)"
