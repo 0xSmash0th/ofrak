@@ -76,6 +76,30 @@
         });
       },
     },
+    {
+      text: "Delete Project",
+      iconUrl: "/icons/trash.svg",
+      shortcut: "D",
+      onclick: async (e) => {
+        if (
+          !window.confirm(
+            `Delete project "${$selectedProject.name}"? It will be moved to the projects .Trash folder.`
+          )
+        ) {
+          return;
+        }
+        await fetch(`${$settings.backendUrl}/delete_project`, {
+          method: "POST",
+          body: JSON.stringify({ id: $selectedProject.session_id }),
+        }).then(async (r) => {
+          if (!r.ok) {
+            throw Error(JSON.stringify(await r.json(), undefined, 2));
+          }
+          return await r.json();
+        });
+        showProjectManager = false;
+      },
+    },
   ];
 </script>
 

@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Add LZ4 compression format unpackers and packers with support for all frame types (modern, legacy, skippable) ([#661](https://github.com/redballoonsecurity/ofrak/pull/661))
 - Add missing component docstrings and improve existing docstrings ([#654](https://github.com/redballoonsecurity/ofrak/pull/654))
 - Add YAFFS2 filesystem support ([#739](https://github.com/redballoonsecurity/ofrak/pull/739))
+- Add a GUI "Delete Project" action (a `POST /delete_project` endpoint that moves the project directory to a recoverable `.Trash` folder, plus a toolbar button with a confirm prompt), since projects could be created and cloned but not deleted from the GUI. ([#XXX](https://github.com/redballoonsecurity/ofrak/pull/XXX))
 
 ### Changed
 - Resources tagged as `FlashResource` now have their `FlashAttributes` inferred automatically by the new `FlashGeometryHeuristicAnalyzer` and become unpackable via `FlashResourceUnpacker` without user-supplied geometry. Workflows that previously attached a hand-crafted `FlashAttributes` should verify the inferred geometry matches. If no standard geometry fits the image, the analyzer logs a warning and returns no attributes so other analyzers (e.g. `BinwalkAnalyzer`) can still run ([#737](https://github.com/redballoonsecurity/ofrak/pull/737))
