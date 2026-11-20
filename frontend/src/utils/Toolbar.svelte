@@ -34,7 +34,11 @@
           toolbarButtons = toolbarButtons;
           try {
             let errorObject = JSON.parse(e.message);
-            alert(`${errorObject.type}: ${errorObject.message}`);
+            let alertMessage = `${errorObject.type}: ${errorObject.message}`;
+            if (errorObject.details) {
+              alertMessage += `\n\n--- underlying detail ---\n${errorObject.details}`;
+            }
+            alert(alertMessage);
           } catch {
             alert(e);
           }
