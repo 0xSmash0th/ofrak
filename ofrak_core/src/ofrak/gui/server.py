@@ -231,6 +231,7 @@ class AiohttpOFRAKServer:
                 web.post("/delete_binary_from_project", self.delete_binary_from_project),
                 web.post("/delete_script_from_project", self.delete_script_from_project),
                 web.post("/reset_project", self.reset_project),
+                web.post("/delete_project", self.delete_project),
                 web.get(
                     "/{resource_id}/get_project_by_resource_id", self.get_project_by_resource_id
                 ),
@@ -1361,6 +1362,24 @@ class AiohttpOFRAKServer:
         script_name = body["script"]
         project = self._get_project_by_id(id)
         project.delete_script(script_name)
+        return json_response([])
+
+    @exceptions_to_http(SerializedError)
+    async def delete_project(self, request: Request) -> Response:
+        body = await request.json()
+        id = body["id"]
+        project = self._get_project_by_id(id)
+        # Move the whole project directory into a trash folder so the delete is recoverable. The
+        # trash dir itself is not a valid project, so _slurp_projects_from_dir skips it (and does
+        # not descend into it), which keeps the deleted project out of the project list.
+        trash_dir = os.path.join(self.projects_dir, ".Trash")
+        os.makedirs(trash_dir, exist_ok=True)
+        dest = os.path.join(trash_dir, os.path.basename(project.path))
+        if os.path.exists(dest):
+            dest = f"{dest}_{project.session_id.hex()[:8]}"
+        os.rename(project.path, dest)
+        if self.projects is not None:
+            self.projects.discard(project)
         return json_response([])
 
     @exceptions_to_http(SerializedError)

@@ -1814,6 +1814,31 @@ async def test_create_new_project(ofrak_client: TestClient, test_project_dir):
     assert resp.status == 200
 
 
+async def test_delete_project(ofrak_client: TestClient, test_project_dir):
+    """
+    Test deleting a project.
+
+    This test verifies that:
+    - A project can be deleted via the API
+    - The deleted project no longer appears in the project list or by-id lookup
+    """
+    resp = await ofrak_client.post("/create_new_project", json={"name": "to_delete"})
+    assert resp.status == 200
+    project_id = (await resp.json())["id"]
+
+    before = await (await ofrak_client.get("/get_all_projects")).json()
+    assert any(p["name"] == "to_delete" for p in before)
+
+    resp = await ofrak_client.post("/delete_project", json={"id": project_id})
+    assert resp.status == 200
+
+    after = await (await ofrak_client.get("/get_all_projects")).json()
+    assert not any(p["name"] == "to_delete" for p in after)
+
+    resp = await ofrak_client.get("/get_project_by_id", params={"id": project_id})
+    assert resp.status != 200
+
+
 async def test_get_project_by_id(ofrak_client: TestClient, test_project_dir):
     """
     Test retrieving a project by its ID.
