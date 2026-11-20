@@ -46,7 +46,7 @@
 </script>
 
 <div class="add-file">
-  <FileBrowser bind:files="{files}" />
+  <FileBrowser bind:files="{files}" selectedName="{f?.name}" />
   {#if f}
     <Button on:click="{addBinaryToProject}"
       ><Icon url="/icons/binary.svg" /> Add Binary to Project</Button
