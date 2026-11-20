@@ -10,6 +10,7 @@
   import RunScriptView from "../views/RunScriptView.svelte";
   import Toolbar from "../utils/Toolbar.svelte";
   import AddProgramAttributesView from "../views/AddProgramAttributesView.svelte";
+  import SetMemoryRegionView from "../views/SetMemoryRegionView.svelte";
 
   import {
     selectedResource,
@@ -110,6 +111,14 @@
         iconUrl: "/icons/carve.svg",
         onclick: async (e) => {
           modifierView = CarveView;
+        },
+      },
+
+      {
+        text: "Set Memory Region",
+        iconUrl: "/icons/disk.svg",
+        onclick: async (e) => {
+          modifierView = SetMemoryRegionView;
         },
       },
 
