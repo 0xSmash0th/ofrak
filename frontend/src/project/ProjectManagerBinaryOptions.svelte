@@ -53,9 +53,7 @@
       text: "Delete Binary",
       iconUrl: "/icons/trash.svg",
       shortcut: "D",
-      onclick: () => {
-        deleteBinary;
-      },
+      onclick: deleteBinary,
     },
   ];
 </script>
