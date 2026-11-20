@@ -37,6 +37,10 @@ class ComponentExternalTool:
     :ivar apt_package: An `apt` package that installs this tool, if such a package exists
     :ivar brew_package: An `brew` package that installs this tool, if such a package exists
     :ivar choco_package: A `choco` package that installs this tool, if such a package exists
+    :ivar pip_package: A `pip` requirement that installs this dependency into OFRAK's Python
+    environment, if one exists. Use for dependencies that are Python modules imported by OFRAK
+    (not CLI tools), where a system package manager will NOT satisfy the import. May be a plain
+    package name or any pip requirement specifier (e.g. a `git+https://...@tag` URL).
     """
 
     tool: str
@@ -45,6 +49,7 @@ class ComponentExternalTool:
     apt_package: Optional[str] = None
     brew_package: Optional[str] = None
     choco_package: Optional[str] = None
+    pip_package: Optional[str] = None
 
     async def is_tool_installed(self) -> bool:
         """

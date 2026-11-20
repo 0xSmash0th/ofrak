@@ -27,6 +27,11 @@ class _BinwalkExternalTool(ComponentExternalTool):
             "binwalk",
             "https://github.com/ReFirmLabs/binwalk",
             install_check_arg="",
+            # BinwalkAnalyzer imports the `binwalk` Python MODULE into OFRAK's environment; it is
+            # NOT satisfied by the system `binwalk` CLI (e.g. `apt install binwalk`). PyPI `binwalk`
+            # is the broken 2.1.0 ("No module named 'binwalk.core'"), so pin the working upstream
+            # source release. (Install into OFRAK's venv, then restart OFRAK so the import re-runs.)
+            pip_package="git+https://github.com/ReFirmLabs/binwalk@v2.3.4",
         )
 
     async def is_tool_installed(self) -> bool:
