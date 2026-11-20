@@ -12,10 +12,26 @@ class SerializedError(RuntimeError):
 
     @classmethod
     def to_dict(cls, error: Exception):
-        return {"type": type(error).__name__, "message": str(error)}
+        # Always carry type + message (the backward-compatible contract every client relies on).
+        # Additionally surface the REAL underlying cause so a GUI-only user can see past the
+        # top-level message: an explicit structured `details` attribute if the raiser set one
+        # (e.g. captured subprocess stderr), otherwise the chained `__cause__` (from
+        # `raise ... from ...`), which is otherwise dropped at this serialization boundary.
+        serialized: Dict[str, Any] = {"type": type(error).__name__, "message": str(error)}
+        details = getattr(error, "details", None)
+        if not details:
+            cause = error.__cause__
+            if cause is not None and cause is not error:
+                details = f"{type(cause).__name__}: {cause}"
+        if details:
+            serialized["details"] = str(details)
+        return serialized
 
     @classmethod
     def from_json(cls, serialized: str) -> "SerializedError":
+        # Note: `details` (added by `to_dict`) is intentionally NOT reconstructed here. It is a
+        # presentation-only field for GUI/JSON consumers (which read it straight off the parsed
+        # payload); a rebuilt Python exception carries only type + message, as before.
         error_dict = json.loads(serialized)
         error_type = error_dict["type"]
         try:
