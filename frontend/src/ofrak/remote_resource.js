@@ -749,6 +749,28 @@ export class RemoteResource extends Resource {
 
     await this.update_script();
   }
+
+  async add_view(view_type, fields) {
+    // Add a ResourceView (e.g. a CodeRegion with a virtual_address + size) to this resource by
+    // posting the view's dotted type name and its field values to the generic add_view endpoint.
+    await fetch(`${this.uri}/add_view_to_resource`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ view_type: view_type, fields: fields }),
+    }).then(async (r) => {
+      if (!r.ok) {
+        throw Error(JSON.stringify(await r.json(), undefined, 2));
+      }
+      const updated_model = await r.json();
+      remote_model_to_resource(updated_model, this.resource_list);
+    });
+    this.flush_cache();
+    this.update();
+
+    await this.update_script();
+  }
 }
 
 export function remote_models_to_resources(remote_models, resources) {
