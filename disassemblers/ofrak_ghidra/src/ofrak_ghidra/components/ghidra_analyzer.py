@@ -167,6 +167,48 @@ class GhidraProjectAnalyzer(Analyzer[None, GhidraProject]):
                 ghidra_project, f"http://{GHIDRA_SERVER_HOST}:{GHIDRA_SERVER_PORT}"
             )
 
+    @staticmethod
+    def _read_text_tail(path: str, limit: int = 4000) -> str:
+        """Return roughly the last `limit` bytes of a file as stripped text, or "" if unreadable.
+        Seeks near the end rather than reading the whole file, so a multi-MB Java stack dump is not
+        pulled entirely into memory."""
+        try:
+            size = os.path.getsize(path)
+            with open(path, "rb") as fh:
+                if size > limit:
+                    fh.seek(size - limit)
+                data = fh.read()
+        except OSError:
+            return ""
+        return data.decode("utf-8", errors="replace").strip()
+
+    @staticmethod
+    async def _reap_failed_process(proc) -> None:
+        """Wait briefly for a failing headless process to exit so its stderr is fully flushed before
+        we read the tail; kill it if it overstays rather than blocking the event loop forever."""
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=10)
+        except asyncio.TimeoutError:
+            try:
+                proc.kill()
+            except ProcessLookupError:
+                pass
+            await proc.wait()
+
+    def _ghidra_headless_error(self, message: str, stderr_path: str) -> GhidraComponentException:
+        """Build a GhidraComponentException that carries the REAL captured stderr tail (the actual
+        Java abort/exception) rather than a generic "check logs" string. The tail is folded into the
+        message (visible via str(exc)) AND attached as `.details`, so the GUI's structured error
+        serializer (SerializedError.to_dict) can surface it to a user who never opens a terminal."""
+        tail = self._read_text_tail(stderr_path)
+        if tail:
+            return GhidraComponentException(
+                f"{message}.\nGhidra stderr (tail):\n{tail}", details=tail
+            )
+        return GhidraComponentException(
+            f"{message} (no stderr captured; see the Ghidra log at {GHIDRA_LOG_FILE})."
+        )
+
     async def _do_ghidra_import(
         self,
         ghidra_project: str,
@@ -288,31 +330,64 @@ class GhidraProjectAnalyzer(Analyzer[None, GhidraProject]):
         cmd_str = " ".join([GHIDRA_HEADLESS_EXEC] + args)
         LOGGER.debug(f"Running command: {cmd_str}")
 
+        # Capture this process's stderr to a temp FILE, not a pipe. On success the process never
+        # exits (AnalysisServer serves forever), so an un-drained stderr pipe would eventually
+        # deadlock the server once its buffer fills; a file lets it write freely. The file also lets
+        # us surface the REAL Java error (e.g. a CramFsAnalyzer NullPointerException) on failure
+        # instead of a generic "check logs" string.
+        stderr_file = tempfile.NamedTemporaryFile(
+            mode="w+", prefix="ofrak_ghidra_serve_", suffix=".stderr", delete=False
+        )
         ghidra_proc = await asyncio.create_subprocess_shell(
             cmd_str,
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
+            stderr=stderr_file,
         )
+        stderr_file.close()  # the child process now holds the write fd
         LOGGER.debug(f"Started ghidra analysis server process: {ghidra_proc.pid}")
 
-        while ghidra_proc.returncode is None:
-            line = (await ghidra_proc.stdout.readline()).decode("ascii")
+        try:
+            while True:
+                line = (await ghidra_proc.stdout.readline()).decode("ascii", errors="replace")
 
-            if len(line) > 0:
-                LOGGER.debug(line)
-            if line.startswith("Repository Server:"):
-                await asyncio.sleep(0.5)
-                ghidra_proc.stdin.write((GHIDRA_PASS + "\n").encode("ascii"))
-                await ghidra_proc.stdin.drain()
-            if "Disconnected from repository" in line:
-                raise GhidraComponentException(
-                    f"Error starting ghidra remote, check logs (at {GHIDRA_LOG_FILE})"
-                )
-            if GHIDRA_SERVER_STARTED in line:
-                return
+                if len(line) > 0:
+                    LOGGER.debug(line)
+                elif ghidra_proc.stdout.at_eof():
+                    # The process closed stdout without printing the success marker. WITHOUT this
+                    # guard, readline() returns b"" on every iteration and the loop spins at 100%
+                    # CPU, starving the asyncio event loop (the observed multi-hour GUI hang). The
+                    # success path never hits this: on success the process stays alive and the
+                    # GHIDRA_SERVER_STARTED branch returns below.
+                    await self._reap_failed_process(ghidra_proc)
+                    raise self._ghidra_headless_error(
+                        "Ghidra analysis server exited before it started serving",
+                        stderr_file.name,
+                    )
 
-        ghidra_errors = await ghidra_proc.stderr.read()
-        raise GhidraComponentException(f"Ghidra server exited unexpectedly! \n{ghidra_errors}")
+                if line.startswith("Repository Server:"):
+                    await asyncio.sleep(0.5)
+                    ghidra_proc.stdin.write((GHIDRA_PASS + "\n").encode("ascii"))
+                    await ghidra_proc.stdin.drain()
+                if "Disconnected from repository" in line:
+                    # Reap first so the child has flushed its stderr (the real Java abort) before we
+                    # read the tail; otherwise the detail is often still unwritten.
+                    await self._reap_failed_process(ghidra_proc)
+                    raise self._ghidra_headless_error(
+                        "Ghidra headless analysis failed (disconnected from repository)",
+                        stderr_file.name,
+                    )
+                if GHIDRA_SERVER_STARTED in line:
+                    return
+        finally:
+            # Always remove the temp file: on failure its tail is already in the raised exception;
+            # on success the still-running server keeps its open fd, so unlinking the path only drops
+            # the directory entry and the (now anonymous) inode is reclaimed when that server exits -
+            # no leftover file either way.
+            try:
+                os.unlink(stderr_file.name)
+            except OSError:
+                pass
 
     def _build_ghidra_server_args(self) -> List[str]:
         args = [str(GHIDRA_SERVER_PORT)]
@@ -526,6 +601,24 @@ class GhidraCustomLoadAnalyzer(GhidraProjectAnalyzer):
     ) -> GhidraProject:
         arch_info: ArchInfo = await resource.analyze(ProgramAttributes)
         mem_blocks = await self._get_memory_blocks(await resource.view_as(Program))
+        # Guard the empty/invalid-memory custom-load. With no usable MemoryRegions, BinaryLoader
+        # builds a program with empty (or malformed) memory, and Ghidra's headless auto-analysis
+        # crashes (a CramFsAnalyzer NullPointerException reading a null min-address), surfacing only
+        # as a generic "Error starting ghidra remote". A region with a null virtual_address or zero
+        # size is just as fatal: `_build_create_memory_args` would emit the literal "None" or a
+        # zero-length block, which CreateMemoryBlocks.java then rejects. Fail fast, before Ghidra.
+        unusable = [
+            b
+            for b in mem_blocks
+            if getattr(b, "virtual_address", None) is None or not getattr(b, "size", None)
+        ]
+        if not mem_blocks or unusable:
+            raise GhidraComponentException(
+                "Custom-load program has no usable MemoryRegions (each needs a non-null "
+                "virtual_address and a non-zero size), so Ghidra would build an empty or invalid "
+                "memory map and its auto-analysis would crash. Set a CodeRegion's virtual_address "
+                "and size first (in the GUI: Carve Child, then Set Memory Region), then analyze."
+            )
         use_existing = config.use_existing if config is not None else False
 
         async with self._prepare_ghidra_project(resource) as (ghidra_project, full_fname):

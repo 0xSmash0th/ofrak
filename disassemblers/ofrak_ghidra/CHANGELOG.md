@@ -15,6 +15,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Move to OpenJDK version 17 with the docker container move to Debian 12 ([#502](https://github.com/redballoonsecurity/ofrak/pull/502))
 
 ### Fixed
+- Guard the Ghidra headless analyze-and-serve read loop against EOF, so a Ghidra process that exits before serving no longer spins the asyncio event loop at 100% CPU (hang). ([#XXX](https://github.com/redballoonsecurity/ofrak/pull/XXX))
+- Surface the real Ghidra headless `stderr` (e.g. a `CramFsAnalyzer` `NullPointerException`) in the raised `GhidraComponentException` instead of a generic "Error starting ghidra remote". ([#XXX](https://github.com/redballoonsecurity/ofrak/pull/XXX))
+- Fail fast with an actionable message when a custom-load `Program` has no usable `MemoryRegion`s (null `virtual_address` or zero `size`), instead of letting Ghidra load an invalid memory map and crash. ([#XXX](https://github.com/redballoonsecurity/ofrak/pull/XXX))
 - Replace blocking `time.sleep` calls with `asyncio.sleep` in Ghidra analyzer ([#712](https://github.com/redballoonsecurity/ofrak/pull/712))
 - Bump `aiohttp` to >=3.13.3 to address CVE-2025-69223 ([#693](https://github.com/redballoonsecurity/ofrak/pull/693))
 - Speedup: do not run Ghidra auto-analysis upon importing a program. ([#473](https://github.com/redballoonsecurity/ofrak/pull/473))

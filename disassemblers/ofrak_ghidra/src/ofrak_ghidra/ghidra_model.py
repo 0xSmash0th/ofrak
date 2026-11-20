@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any, Iterable, Optional
 
 import aiohttp
 
@@ -36,7 +36,13 @@ class GhidraCustomLoadProject(GhidraProject):
 
 
 class GhidraComponentException(Exception):
-    pass
+    """A Ghidra component failure. `details` optionally carries the underlying tool output (e.g. the
+    captured headless stderr) so the GUI error serializer (`SerializedError.to_dict`) can surface the
+    real cause to a user who never sees a terminal."""
+
+    def __init__(self, message: str, details: Optional[str] = None):
+        super().__init__(message)
+        self.details = details
 
 
 class GhidraEnvironmentException(Exception):
